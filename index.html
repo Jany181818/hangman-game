@@ -1,0 +1,394 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Hangman — Play Online</title>
+<style>
+  :root{
+    --bg:#0f1724; --card:#0b1220; --accent:#60a5fa; --muted:#9aa7bf; --ok:#34d399; --bad:#fb7185;
+  }
+  html,body{height:100%;margin:0;font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,"Helvetica Neue",Arial;}
+  body{background:linear-gradient(180deg,#071026 0%, #0f1724 100%); color:#e6eef8; display:flex; align-items:center; justify-content:center; padding:24px;}
+  .wrap{width:100%;max-width:920px;background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01)); border-radius:14px; box-shadow:0 10px 30px rgba(2,6,23,0.6); padding:20px; display:grid; grid-template-columns: 1fr 380px; gap:18px;}
+  header{grid-column:1/-1; display:flex; align-items:center; justify-content:space-between; gap:12px;}
+  h1{font-size:20px;margin:0;color:var(--accent);}
+  .controls{display:flex;gap:8px;align-items:center;}
+  button{background:var(--accent);color:#07203a;border:0;padding:8px 12px;border-radius:8px;font-weight:600;cursor:pointer;box-shadow:0 6px 18px rgba(96,165,250,0.12)}
+  button.alt{background:transparent;color:var(--accent);border:1px solid rgba(96,165,250,0.14)}
+  .left{padding:10px;}
+  .game-card{background:rgba(255,255,255,0.02);border-radius:10px;padding:16px; margin-bottom:12px;}
+  .word{display:flex;gap:8px;flex-wrap:wrap;font-size:28px;letter-spacing:6px;justify-content:center;margin:12px 0;}
+  .letter{display:inline-block;min-width:30px;border-bottom:2px solid rgba(255,255,255,0.08);text-align:center;padding:6px 4px;border-radius:6px;background:linear-gradient(180deg, rgba(255,255,255,0.01), transparent);}
+  .status{display:flex;gap:12px;align-items:center;justify-content:center;margin-top:8px;color:var(--muted)}
+  .keyboard{display:grid;grid-template-columns: repeat(10,1fr); gap:6px; margin-top:12px;}
+  .key{background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.03); color:var(--muted); padding:10px 6px; border-radius:8px; text-align:center; font-weight:700; cursor:pointer; user-select:none;}
+  .key.used{opacity:0.5; cursor:not-allowed;}
+  .key.good{background:linear-gradient(90deg, rgba(52,211,153,0.12), rgba(52,211,153,0.06)); color:var(--ok); border-color:rgba(52,211,153,0.12);}
+  .key.bad{background:linear-gradient(90deg, rgba(251,113,133,0.06), rgba(251,113,133,0.03)); color:var(--bad); border-color:rgba(251,113,133,0.08);}
+  .right-col{display:flex;flex-direction:column;gap:12px;}
+  .hangman-svg{width:100%;height:300px;background:linear-gradient(180deg, rgba(255,255,255,0.01), rgba(255,255,255,0.01)); border-radius:8px; padding:14px; display:flex; align-items:center; justify-content:center;}
+  svg{max-width:100%;height:100%;}
+  .meta{display:flex;justify-content:space-between;gap:10px;color:var(--muted);font-size:13px;margin-top:6px;}
+  .small{font-size:13px;color:var(--muted)}
+  .add-word{display:flex;gap:8px;margin-top:8px}
+  input[type="text"]{background:transparent;border:1px solid rgba(255,255,255,0.04);padding:8px;border-radius:8px;color:#e6eef8;flex:1}
+  .footer{grid-column:1/-1;text-align:center;color:var(--muted);font-size:13px;margin-top:8px}
+  @media(max-width:880px){ .wrap{grid-template-columns:1fr; } .hangman-svg{height:240px} .keyboard{grid-template-columns: repeat(7,1fr);} }
+</style>
+</head>
+<body>
+  <div class="wrap" role="application" aria-label="Hangman Game">
+    <header>
+      <h1>🎯 Hangman — Classic word guess</h1>
+      <div class="controls">
+        <button id="newBtn">New Game</button>
+        <button id="hintBtn" class="alt">Show Hint</button>
+      </div>
+    </header>
+
+    <main class="left">
+      <section class="game-card" aria-live="polite">
+        <div class="small">Category: <strong id="categoryText">Random</strong></div>
+        <div id="wordContainer" class="word" aria-hidden="false"></div>
+        <div class="status" aria-live="polite">
+          <div>Wrong: <strong id="wrongCount">0</strong>/<span id="maxWrong">6</span></div>
+          <div id="message" style="font-weight:700;"></div>
+        </div>
+        <div class="small" style="text-align:center;margin-top:8px">Press letters on keyboard or use your physical keyboard</div>
+
+        <div class="keyboard" id="keyboard" aria-label="On screen keyboard"></div>
+        <div style="display:flex;gap:8px;justify-content:center;margin-top:12px">
+          <button id="resetBtn" class="alt">Reset Scores</button>
+          <div style="color:var(--muted); display:flex;gap:10px;align-items:center">
+            <div>Wins: <strong id="wins">0</strong></div>
+            <div>Losses: <strong id="losses">0</strong></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="game-card">
+        <div style="display:flex;align-items:center;justify-content:space-between">
+          <div><strong>Add Word</strong><div class="small">Add your own word (letters only).</div></div>
+        </div>
+        <div class="add-word">
+          <input id="newWordInput" type="text" placeholder="e.g. javascript" aria-label="Add new word" />
+          <button id="addWordBtn">Add</button>
+        </div>
+        <div class="small" style="margin-top:8px">Words added are saved locally in your browser.</div>
+      </section>
+    </main>
+
+    <aside class="right-col">
+      <div class="hangman-svg" role="img" aria-label="Hangman drawing">
+        <!-- SVG hangman - parts revealed progressively based on mistakes -->
+        <svg viewBox="0 0 200 260" xmlns="http://www.w3.org/2000/svg" id="hangmanSvg">
+          <!-- gallows -->
+          <g stroke="#e6eef8" stroke-width="3" fill="none" stroke-linecap="round">
+            <line x1="20" y1="240" x2="180" y2="240" id="base"/>
+            <line x1="50" y1="240" x2="50" y2="30" id="pole"/>
+            <line x1="50" y1="30" x2="130" y2="30" id="top"/>
+            <line x1="130" y1="30" x2="130" y2="50" id="rope"/>
+          </g>
+
+          <!-- head -->
+          <g id="part-head" stroke="#e6eef8" stroke-width="3" fill="none" transform="translate(0,0)" style="opacity:0">
+            <circle cx="130" cy="70" r="18"/>
+          </g>
+
+          <!-- body -->
+          <g id="part-body" stroke="#e6eef8" stroke-width="3" fill="none" style="opacity:0">
+            <line x1="130" y1="88" x2="130" y2="140"/>
+          </g>
+
+          <!-- left arm -->
+          <g id="part-larm" stroke="#e6eef8" stroke-width="3" fill="none" style="opacity:0">
+            <line x1="130" y1="98" x2="105" y2="120"/>
+          </g>
+
+          <!-- right arm -->
+          <g id="part-rarm" stroke="#e6eef8" stroke-width="3" fill="none" style="opacity:0">
+            <line x1="130" y1="98" x2="155" y2="120"/>
+          </g>
+
+          <!-- left leg -->
+          <g id="part-lleg" stroke="#e6eef8" stroke-width="3" fill="none" style="opacity:0">
+            <line x1="130" y1="140" x2="110" y2="180"/>
+          </g>
+
+          <!-- right leg -->
+          <g id="part-rleg" stroke="#e6eef8" stroke-width="3" fill="none" style="opacity:0">
+            <line x1="130" y1="140" x2="150" y2="180"/>
+          </g>
+
+        </svg>
+      </div>
+
+      <div class="game-card">
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <div>
+            <strong>Current Word</strong>
+            <div class="small" id="maskedWord">—</div>
+          </div>
+          <div style="text-align:right">
+            <div class="small">Max mistakes</div>
+            <div style="font-weight:700" id="maxMistakesDisplay">6</div>
+          </div>
+        </div>
+
+        <div style="margin-top:12px" class="small">
+          <strong>Tip:</strong> Use physical keyboard letters or tap the on-screen keys. Add words that use only letters (A–Z).
+        </div>
+      </div>
+
+    </aside>
+
+    <div class="footer">Made with ❤ — Save this file as <code>index.html</code> and use GitHub Pages to host it (no backend required).</div>
+  </div>
+
+<script>
+(() => {
+  // === Configuration ===
+  const MAX_WRONG = 6;
+  const defaultWords = {
+    Random: ["javascript","hangman","computer","planet","galaxy","banana","unicorn","puzzle","network","keyboard"],
+    Animals: ["elephant","giraffe","crocodile","kangaroo","butterfly","penguin"],
+    Fruits: ["apple","banana","mango","pineapple","strawberry"],
+    Tech: ["algorithm","variable","function","react","node","server","database"]
+  };
+
+  // === State ===
+  let wordsByCategory = {...defaultWords};
+  // load user-added words from localStorage
+  const userWordsKey = "hangman_user_words_v1";
+  const saved = safeJSON(localStorage.getItem(userWordsKey)) || {};
+  wordsByCategory = {...wordsByCategory, ...saved};
+
+  let current = {
+    category: "Random",
+    word: "",
+    revealed: [],
+    wrong: 0,
+    used: new Set(),
+    gameOver: false
+  };
+
+  // score
+  const scoreKey = "hangman_score_v1";
+  let score = safeJSON(localStorage.getItem(scoreKey)) || {wins:0,losses:0};
+
+  // === Elements ===
+  const wordContainer = document.getElementById("wordContainer");
+  const keyboardEl = document.getElementById("keyboard");
+  const wrongCountEl = document.getElementById("wrongCount");
+  const messageEl = document.getElementById("message");
+  const newBtn = document.getElementById("newBtn");
+  const hintBtn = document.getElementById("hintBtn");
+  const maskedWord = document.getElementById("maskedWord");
+  const categoryText = document.getElementById("categoryText");
+  const winsEl = document.getElementById("wins");
+  const lossesEl = document.getElementById("losses");
+  const addWordBtn = document.getElementById("addWordBtn");
+  const newWordInput = document.getElementById("newWordInput");
+  const resetBtn = document.getElementById("resetBtn");
+  const maxMistakesDisplay = document.getElementById("maxMistakesDisplay");
+  const maxWrongEl = document.getElementById("maxWrong");
+
+  // hangman parts mapping (in reveal order)
+  const parts = [
+    "part-head","part-body","part-larm","part-rarm","part-lleg","part-rleg"
+  ];
+
+  // initialize UI
+  maxWrongEl.textContent = MAX_WRONG;
+  maxMistakesDisplay.textContent = MAX_WRONG;
+  updateScoreUI();
+  buildKeyboard();
+  startGame();
+
+  // === Functions ===
+  function startGame(category=null){
+    current.category = category || randomCategory();
+    categoryText.textContent = current.category;
+    const list = wordsByCategory[current.category];
+    current.word = pickRandom(list).toLowerCase();
+    current.revealed = Array.from(current.word).map(ch => (isLetter(ch) ? "_" : ch));
+    current.wrong = 0;
+    current.used = new Set();
+    current.gameOver = false;
+    wrongCountEl.textContent = current.wrong;
+    messageEl.textContent = "";
+    maskedWord.textContent = current.revealed.join(" ");
+    renderWord();
+    resetParts();
+    resetKeyboardUI();
+  }
+
+  function renderWord(){
+    wordContainer.innerHTML = "";
+    current.revealed.forEach((ch, i) => {
+      const el = document.createElement("div");
+      el.className = "letter";
+      el.textContent = ch === "_" ? "" : ch;
+      el.setAttribute("data-index", i);
+      wordContainer.appendChild(el);
+    });
+    maskedWord.textContent = current.revealed.join(" ");
+  }
+
+  function handleGuess(letter){
+    if(current.gameOver) return;
+    letter = letter.toLowerCase();
+    if(current.used.has(letter) || !isLetter(letter)) return;
+    current.used.add(letter);
+
+    const indices = [];
+    for(let i=0;i<current.word.length;i++){
+      if(current.word[i] === letter) indices.push(i);
+    }
+
+    if(indices.length){
+      indices.forEach(i => current.revealed[i] = letter);
+      revealKey(letter, true);
+      renderWord();
+      if(!current.revealed.includes("_")){
+        // win
+        current.gameOver = true;
+        messageEl.textContent = "🎉 You won!";
+        messageEl.style.color = "var(--ok)";
+        score.wins++;
+        saveScore();
+        updateScoreUI();
+      }
+    } else {
+      current.wrong++;
+      wrongCountEl.textContent = current.wrong;
+      revealKey(letter, false);
+      showPart(current.wrong-1);
+      if(current.wrong >= MAX_WRONG){
+        // lose
+        current.gameOver = true;
+        messageEl.textContent = 💀 You lost — word was: ${current.word};
+        messageEl.style.color = "var(--bad)";
+        revealAll();
+        score.losses++;
+        saveScore();
+        updateScoreUI();
+      }
+    }
+  }
+
+  function revealAll(){
+    // reveal missing letters
+    for(let i=0;i<current.word.length;i++){
+      if(current.revealed[i] === "_" ) current.revealed[i] = current.word[i];
+    }
+    renderWord();
+  }
+
+  function isLetter(ch){ return /^[a-zA-Z]$/.test(ch); }
+
+  // keyboard
+  function buildKeyboard(){
+    keyboardEl.innerHTML = "";
+    const letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("");
+    letters.forEach(l => {
+      const btn = document.createElement("div");
+      btn.className = "key";
+      btn.textContent = l;
+      btn.setAttribute("data-letter", l);
+      btn.setAttribute("role","button");
+      btn.addEventListener("click", () => handleGuess(l));
+      keyboardEl.appendChild(btn);
+    });
+  }
+
+  function revealKey(letter, ok){
+    const nodes = keyboardEl.querySelectorAll('[data-letter="'+letter.toUpperCase()+'"]');
+    nodes.forEach(n => {
+      n.classList.add("used");
+      n.classList.add(ok ? "good" : "bad");
+    });
+  }
+
+  function resetKeyboardUI(){
+    const nodes = keyboardEl.querySelectorAll(".key");
+    nodes.forEach(n => { n.className = "key"; n.disabled=false; });
+  }
+
+  // hangman parts show
+  function showPart(idx){
+    if(idx<0 || idx>=parts.length) return;
+    const el = document.getElementById(parts[idx]);
+    if(el) el.style.opacity = 1;
+  }
+  function resetParts(){
+    parts.forEach(id => { const el=document.getElementById(id); if(el) el.style.opacity=0; });
+  }
+
+  // random helpers
+  function pickRandom(arr){ return arr[Math.floor(Math.random()*arr.length)]; }
+  function randomCategory(){ const keys = Object.keys(wordsByCategory); return keys[Math.floor(Math.random()*keys.length)]; }
+
+  // keyboard physical
+  window.addEventListener("keydown", (e) => {
+    if(e.key && isLetter(e.key)){
+      handleGuess(e.key);
+    }
+    // allow Enter -> new game
+    if(e.key === "Enter" && current.gameOver){ startGame(); }
+  });
+
+  // UI buttons
+  newBtn.addEventListener("click", () => startGame());
+  hintBtn.addEventListener("click", () => {
+    if(current.gameOver) return;
+    // simple hint: reveal one unrevealed letter
+    const idx = current.revealed.findIndex(ch => ch === "_");
+    if(idx === -1) return;
+    const letter = current.word[idx];
+    handleGuess(letter);
+  });
+
+  addWordBtn.addEventListener("click", () => {
+    const raw = (newWordInput.value || "").trim().toLowerCase();
+    if(!raw){ alert("Please type a word"); return; }
+    if(!/^[a-z]+$/.test(raw)){ alert("Only letters A-Z allowed (no spaces, numbers or symbols)."); return; }
+    // save under "Custom"
+    if(!wordsByCategory.Custom) wordsByCategory.Custom = [];
+    wordsByCategory.Custom.push(raw);
+    // persist user words separately
+    const userSaved = safeJSON(localStorage.getItem(userWordsKey)) || {};
+    userSaved.Custom = userSaved.Custom || [];
+    userSaved.Custom.push(raw);
+    localStorage.setItem(userWordsKey, JSON.stringify(userSaved));
+    newWordInput.value = "";
+    alert(Added "${raw}" to your Custom words. Start a new game to play it.);
+  });
+
+  resetBtn.addEventListener("click", () => {
+    if(confirm("Reset wins & losses?")){ score={wins:0,losses:0}; saveScore(); updateScoreUI(); }
+  });
+
+  // update masked display
+  function updateScoreUI(){
+    winsEl.textContent = score.wins;
+    lossesEl.textContent = score.losses;
+  }
+  function saveScore(){ localStorage.setItem(scoreKey, JSON.stringify(score)); }
+
+  // reveal every letter visually (set to revealed)
+  function showAllAndDisable(){
+    revealAll();
+    current.gameOver = true;
+  }
+
+  // Utility
+  function safeJSON(str){
+    try{ return JSON.parse(str); } catch(e){ return null; }
+  }
+
+})();
+</script>
+</body>
+</html>
